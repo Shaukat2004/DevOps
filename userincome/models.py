@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.timezone import now
 
-#Model Creation goes here
+#Model Creation goes inside this portion
 
 
 class UserIncome(models.Model):
