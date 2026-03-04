@@ -14,8 +14,14 @@ pipeline {
     }
     stage('Run Tests') {
       steps {
-        bat 'python manage.py test'
+        bat 'pytest --junitxml=result.xml'
       }
     }
+    stage('Publish Test Results') {
+            steps {
+                junit 'result.xml'
+            }
+        }
   }
 }
+
