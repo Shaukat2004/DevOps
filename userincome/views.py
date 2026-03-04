@@ -1,3 +1,4 @@
+import datetime
 from django.shortcuts import render, redirect
 from .models import Source, UserIncome
 from django.core.paginator import Paginator
@@ -55,7 +56,11 @@ def add_income(request):
             return render(request, 'income/add_income.html', context)
         description = request.POST['description']
         date = request.POST['income_date']
-        source = request.POST['source']
+        source = request.POST.get('source')
+
+        if not source:
+            messages.error(request, 'Source is required')
+            return render(request, 'income/add_income.html', context)
 
         if not description:
             messages.error(request, 'description is required')
@@ -108,3 +113,39 @@ def delete_income(request, id):
     income.delete()
     messages.success(request, 'record removed')
     return redirect('income')
+
+ 
+def income_source_summary(request):
+    todays_date = datetime.date.today()
+    six_months_ago = todays_date - datetime.timedelta(days=30*6)
+
+    incomes = UserIncome.objects.filter(
+        owner=request.user,
+        date__gte=six_months_ago,
+        date__lte=todays_date
+    )
+
+    finalrep = {}
+
+    def get_source(income):
+        return income.source
+
+    source_list = list(set(map(get_source, incomes)))
+
+    def get_income_source_amount(source):
+        amount = 0
+        filtered_by_source = incomes.filter(source=source)
+
+        for item in filtered_by_source:
+            amount += item.amount
+        return amount
+
+    for x in incomes:
+        for y in source_list:
+            finalrep[y] = get_income_source_amount(y)
+
+    return JsonResponse({'income_source_data': finalrep}, safe=False)
+
+
+def income_stats_view(request):
+    return render(request, 'income/stats.html')

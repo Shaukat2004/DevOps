@@ -2,3 +2,8 @@ django==4.2
 mysqlclient
 validate_email
 six
+selenium
+pytest
+pytest-django
+webdriver-manager
+coverage

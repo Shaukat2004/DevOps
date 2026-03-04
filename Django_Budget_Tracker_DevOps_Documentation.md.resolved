@@ -1,0 +1,822 @@
+
+# Technical Documentation
+## Django Budget Tracker Using Docker and CI/CD Integration
+
+---
+
+**Course:** Master of Computer Applications (MCA) — Final Year  
+**Subject:** DevOps Laboratory  
+**Semester:** II  
+**Project Title:** Django Budget Tracker Using Docker and CI/CD Integration  
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#1-project-overview)
+2. [System Architecture](#2-system-architecture)
+3. [Application Workflow](#3-application-workflow)
+4. [Docker Workflow](#4-docker-workflow)
+5. [Deployment Workflow](#5-deployment-workflow)
+6. [Future CI/CD Workflow (Conceptual)](#6-future-cicd-workflow-conceptual)
+7. [Security Considerations](#7-security-considerations)
+8. [Conclusion](#8-conclusion)
+
+---
+
+## 1. Project Overview
+
+### 1.1 Purpose of the Project
+
+The **Django Budget Tracker** is a full-stack web application developed using the Django framework (Python). Its primary purpose is to provide individual users with a personal finance management tool that allows them to:
+
+- Record and categorize **expenses** by category, date, and description.
+- Record and track **income** entries by source, date, and amount.
+- Visualize financial summaries via a **statistics dashboard** powered by Chart.js.
+- Set **currency preferences** per user account.
+- Manage all data securely in isolation — each user can only view and modify their own records.
+
+The project is containerized using **Docker** and designed to be integrated into a **CI/CD pipeline** using Jenkins, demonstrating the practical application of modern DevOps practices in a real-world web application context.
+
+---
+
+### 1.2 Problem Statement
+
+Managing personal finances manually is error-prone and lacks structure. Spreadsheet-based tools do not provide web access, multi-user support, or data security. There is a need for a lightweight, containerized web application that:
+
+- Provides a **secure, user-specific** environment for tracking income and expenditure.
+- Offers **category-based summarization** of expenses over time.
+- Can be **deployed consistently** across development, testing, and production environments without manual configuration drift.
+- Supports **automation of build, test, and deployment cycles** through CI/CD integration.
+
+Traditional deployment approaches rely on host-specific dependencies, making the application fragile across environments. Docker removes this dependency by encapsulating the application and its runtime environment into a portable container.
+
+---
+
+### 1.3 Objectives
+
+- **O1:** Develop a multi-user web application using Django 4.2 with authentication, expense management, income tracking, and user preferences.
+- **O2:** Implement role-based access control distinguishing between Django `superuser` (Admin) and standard users.
+- **O3:** Integrate email-based account activation to ensure verified registrations.
+- **O4:** Containerize the application using Docker and configure MySQL as the database backend.
+- **O5:** Define all environment-specific parameters (database credentials, email settings) via environment variables, following the **twelve-factor app** methodology.
+- **O6:** Design and document a conceptual CI/CD pipeline using Jenkins that automates build, test, and deployment stages.
+- **O7:** Demonstrate the practical relevance of DevOps principles — repeatability, automation, and infrastructure-as-code — in a Django web project.
+
+---
+
+## 2. System Architecture
+
+### 2.1 High-Level Architecture Overview
+
+The system follows a **three-tier architecture**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     CLIENT LAYER                        │
+│        Web Browser  ──►  HTTP Requests / Responses      │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│               APPLICATION LAYER (Docker Container)      │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         Django Application (Python 3.x)          │   │
+│  │                                                  │   │
+│  │  ┌────────────┐  ┌──────────┐  ┌─────────────┐  │   │
+│  │  │   URLs     │  │  Views   │  │   Models    │  │   │
+│  │  │ (Routing)  │─►│(Business │─►│  (ORM/DB    │  │   │
+│  │  │            │  │  Logic)  │  │  Layer)     │  │   │
+│  │  └────────────┘  └──────────┘  └──────┬──────┘  │   │
+│  │                                        │         │   │
+│  │  ┌──────────┐  ┌────────────────────┐  │         │   │
+│  │  │Templates │  │  Static Files      │  │         │   │
+│  │  │(HTML/CSS/│  │  (CSS/JS/Charts)   │  │         │   │
+│  │  │   JS)    │  │                    │  │         │   │
+│  │  └──────────┘  └────────────────────┘  │         │   │
+│  └─────────────────────────────────────┬──┘         │   │
+│                                        │             │   │
+└────────────────────────────────────────┼─────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────┐
+│               DATABASE LAYER (Docker Container)         │
+│                  MySQL 8.x Database                     │
+│                  Database: expensesdb                   │
+│                  Port: 3306                             │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 2.2 Components Involved
+
+| Component | Technology | Description |
+|---|---|---|
+| **Web Framework** | Django 4.2 | Handles routing, views, ORM, admin panel, and session management |
+| **Application Server** | Gunicorn (WSGI) | Serves the Django application in a production-ready manner |
+| **Database** | MySQL 8.x | Relational database storing all user, expense, income, and preference data |
+| **Database Connector** | `mysqlclient` | Python library bridging Django ORM to MySQL |
+| **Email Service** | SMTP (via Django email backend) | Sends account activation emails to newly registered users |
+| **Containerization** | Docker | Packages the application and database into isolated, portable containers |
+| **Container Orchestration** | Docker Compose | Defines and manages multi-container services (app + db) |
+| **Static Files** | Django `staticfiles` | CSS, JavaScript, and chart libraries served from `expenseswebsite/static/` |
+| **Templates** | Django Template Engine | HTML templates with template tag rendering for dynamic content |
+
+---
+
+### 2.3 Django Application Modules
+
+The project is organized into the following Django applications (apps):
+
+| App | Module Path | Responsibility |
+|---|---|---|
+| **authentication** | `authentication/` | User registration, login, logout, email verification |
+| **expenses** | `expenses/` | Expense CRUD operations, category management, statistics summary |
+| **userincome** | `userincome/` | Income entry management (add, edit, delete) |
+| **userpreferences** | `userpreferences/` | Per-user currency preference settings |
+| **expenseswebsite** | `expenseswebsite/` | Project-level settings, URL routing, static files configuration |
+
+---
+
+### 2.4 Container Interaction Model
+
+In a Docker Compose deployment, the two containers interact as follows:
+
+```
+┌─────────────────────────────────────────────────┐
+│              Docker Compose Network             │
+│                                                 │
+│  ┌─────────────────────┐   ┌─────────────────┐  │
+│  │   web (Django App)  │   │   db (MySQL)    │  │
+│  │   Container         │──►│   Container     │  │
+│  │   Port: 8000        │   │   Port: 3306    │  │
+│  │   Depends on: db    │   │   Volume: mysql │  │
+│  └─────────────────────┘   └─────────────────┘  │
+│                                                 │
+│   Host Machine Port 8000 ◄──► Container 8000    │
+└─────────────────────────────────────────────────┘
+```
+
+- The **Django container** connects to the **MySQL container** using the service name `db` as the database host (resolved internally via Docker's DNS service within the Compose network).
+- Database credentials and host configuration are passed as **environment variables** at container runtime.
+- Both containers share an internal Docker network, with only port `8000` exposed to the host machine.
+
+---
+
+## 3. Application Workflow
+
+### 3.1 User Authentication Flow
+
+The authentication system is implemented in the `authentication` app and uses Django's built-in `User` model from `django.contrib.auth`.
+
+#### Registration Flow
+
+```
+User ──► /authentication/register (GET)
+         ├─► Renders: authentication/register.html
+         │
+User fills form ──► /authentication/register (POST)
+         ├─► UsernameValidationView (POST /validate-username)
+         │     ├─► Checks: username is alphanumeric
+         │     └─► Checks: username is unique in DB
+         ├─► EmailValidationView (POST /validate-email)
+         │     ├─► Validates: email format using `validate_email` library
+         │     └─► Checks: email not already registered
+         ├─► Password length must be ≥ 6 characters
+         ├─► User.objects.create_user() ── user.is_active = False
+         ├─► Generates activation token (account_activation_token.make_token)
+         ├─► Sends activation link via EmailMessage to registered email
+         └─► Redirects to register.html with success message
+
+User clicks email link ──► /authentication/activate/<uidb64>/<token>
+         ├─► VerificationView decodes uidb64 to get User pk
+         ├─► Validates token via account_activation_token.check_token()
+         ├─► Sets user.is_active = True and saves
+         └─► Redirects to /authentication/login
+```
+
+#### Login Flow
+
+```
+User ──► /authentication/login (GET)
+         └─► Renders: authentication/login.html
+
+User submits credentials ──► /authentication/login (POST)
+         ├─► auth.authenticate(username, password)
+         │     ├─► If user NOT found ──► Error: "Invalid credentials"
+         │     └─► If user found:
+         │           ├─► If user.is_active = False ──► Error: "Account not active"
+         │           └─► If user.is_active = True:
+         │                 ├─► auth.login(request, user) ── creates session
+         │                 └─► Redirects to /  (expenses index)
+```
+
+#### Logout Flow
+
+```
+User ──► POST /authentication/logout
+         ├─► auth.logout(request) ── destroys session
+         └─► Redirects to /authentication/login
+```
+
+---
+
+### 3.2 Role-Based Access Control
+
+| Role | Access Level |
+|---|---|
+| **Anonymous User** | Only `/authentication/login` and `/authentication/register` are accessible. All other routes redirect to login. |
+| **Authenticated User** | Full access to their own expenses, income entries, and preferences. Cannot view or modify other users' data. |
+| **Superuser (Admin)** | Access to `/admin/` panel. Can view and manage all users, expenses, income records, and categories across the system. |
+
+- The `@login_required(login_url='/authentication/login')` decorator is applied to all protected views in `expenses/views.py` and `userincome/views.py`.
+- Data isolation is enforced at the ORM query level: all querysets are filtered with `owner=request.user`, ensuring users can never access records belonging to other accounts.
+
+---
+
+### 3.3 Expense Management Workflow
+
+```
+Dashboard (/) ──► Displays paginated expense list (5 per page)
+                  Filtered by: owner = request.user
+                  Loaded currency from: UserPreference.objects.get(user=request.user)
+
+Add Expense:
+  User ──► /add-expense (GET) ──► Renders form with all Categories
+  User submits form ──► /add-expense (POST)
+         ├─► Validates: amount is not empty
+         ├─► Validates: description is not empty
+         ├─► Expense.objects.create(owner, amount, date, category, description)
+         └─► Redirects to /
+
+Edit Expense:
+  User ──► /edit-expense/<id> (GET)
+         ├─► Expense.objects.get(pk=id)
+         └─► Renders edit form pre-populated with existing data
+
+  User submits changes ──► /edit-expense/<id> (POST)
+         ├─► Validates fields
+         ├─► expense.amount = ... ; expense.save()
+         └─► Redirects to /
+
+Delete Expense:
+  User ──► /expense-delete/<id>
+         ├─► Expense.objects.get(pk=id).delete()
+         └─► Redirects to / with success message
+
+Search Expenses (AJAX):
+  User types in search box ──► POST /search-expenses (JSON body)
+         ├─► Filters by: amount__istartswith, date__istartswith,
+         │               description__icontains, category__icontains
+         └─► Returns: JsonResponse with matching records
+```
+
+---
+
+### 3.4 Dashboard Summary Generation Flow
+
+The statistics/dashboard functionality is handled by `expense_category_summary` and `stats_view` in `expenses/views.py`.
+
+```
+User ──► /stats (GET)
+         └─► Renders: expenses/stats.html
+               └─► Client-side JavaScript makes AJAX call to:
+
+User (JS) ──► GET /expense_category_summary
+         ├─► Computes date range: today → 6 months ago
+         ├─► Queries: Expense.objects.filter(owner, date__gte, date__lte)
+         ├─► Builds unique category list from filtered records
+         ├─► For each category:
+         │     └─► Sums all amounts in that category
+         └─► Returns: JsonResponse({'expense_category_data': {category: total, ...}})
+
+Client-side (Chart.js):
+         └─► Receives JSON data and renders a doughnut/bar chart
+               showing expense breakdown by category over the last 6 months
+```
+
+---
+
+### 3.5 Database Interaction Flow
+
+Django's ORM abstracts all SQL queries. The interaction chain is:
+
+```
+HTTP Request
+     │
+     ▼
+View Function / Class-Based View
+     │  (Python object operations)
+     ▼
+Django ORM (QuerySet API)
+     │  (Generates SQL internally)
+     ▼
+mysqlclient (Python-MySQL connector)
+     │  (Executes SQL on TCP 3306)
+     ▼
+MySQL Database (expensesdb)
+     │
+     ▼
+Query Result returned as Python objects
+     │
+     ▼
+View passes context to Template Renderer
+     │
+     ▼
+HTML Response sent to Browser
+```
+
+**Key database tables generated by Django migrations:**
+
+| Table | Model | Key Fields |
+|---|---|---|
+| `auth_user` | Django built-in `User` | `id`, `username`, `email`, `password` (hashed), `is_active`, `is_staff` |
+| `expenses_expense` | `Expense` | `id`, `amount`, `date`, `description`, `category`, `owner_id` (FK) |
+| `expenses_category` | `Category` | `id`, `name` |
+| `userincome_userincome` | `UserIncome` | `id`, `amount`, `date`, `description`, `source`, `owner_id` (FK) |
+| `userincome_source` | `Source` | `id`, `name` |
+| `userpreferences_userpreference` | `UserPreference` | `id`, `user_id` (OneToOne FK), `currency` |
+
+---
+
+## 4. Docker Workflow
+
+### 4.1 Why Docker is Used
+
+| Problem Without Docker | Solution With Docker |
+|---|---|
+| Developer machine has different OS or Python version than production | Docker container has a fixed Python runtime version regardless of host |
+| Database must be manually installed and configured on every machine | MySQL runs in a dedicated container with pre-defined configuration |
+| Environment variables and secrets may be hardcoded | Docker supports injection of env vars at runtime via `-e` flags or `.env` files |
+| "Works on my machine" problems in team environments | Docker image is built once and guarantees identical behavior everywhere |
+| Deploying to a new server requires repeating manual setup steps | A single `docker-compose up` command brings the entire stack to life |
+
+Docker enables **reproducible environments**, **dependency isolation**, and **infrastructure-as-code** — all core DevOps principles.
+
+---
+
+### 4.2 Dockerfile Explanation
+
+The `Dockerfile` defines how to build the Django application image. A representative Dockerfile for this project is structured as follows:
+
+```dockerfile
+# Stage 1: Base Image
+FROM python:3.10-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Install system-level MySQL client library required by mysqlclient
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency list first (leverages Docker layer caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the complete project source code into the container
+COPY . .
+
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Expose the application port
+EXPOSE 8000
+
+# Start the application using Gunicorn WSGI server
+CMD ["gunicorn", "expenseswebsite.wsgi:application", "--bind", "0.0.0.0:8000"]
+```
+
+**Layer-by-layer explanation:**
+
+| Instruction | Purpose |
+|---|---|
+| `FROM python:3.10-slim` | Uses a minimal Debian-based Python image to reduce image size |
+| `WORKDIR /app` | Sets the container's working directory; all subsequent commands run here |
+| `RUN apt-get install ...` | Installs `libmysqlclient-dev` required to compile and use `mysqlclient` |
+| `COPY requirements.txt .` | Copied separately before source code to exploit Docker's build layer cache |
+| `RUN pip install ...` | Installs `django==4.2`, `mysqlclient`, `validate_email`, `six`, `gunicorn` |
+| `COPY . .` | Copies all application source files into the container image |
+| `RUN collectstatic` | Gathers all static files into `STATIC_ROOT` for production serving |
+| `EXPOSE 8000` | Documents that the container listens on port 8000 |
+| `CMD [...]` | Default command: starts Gunicorn bound to all network interfaces on port 8000 |
+
+---
+
+### 4.3 Docker Compose Explanation
+
+`docker-compose.yml` defines the multi-container environment declaratively:
+
+```yaml
+version: "3.9"
+
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: budget_tracker_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: expensesdb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: budget_tracker_web
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn expenseswebsite.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_NAME=expensesdb
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_HOST=db
+      - DB_PORT=3306
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+
+volumes:
+  mysql_data:
+```
+
+**Key configuration points:**
+
+| Key | Explanation |
+|---|---|
+| `db.image: mysql:8.0` | Uses the official MySQL 8.0 image; no manual MySQL installation required |
+| `db.volumes: mysql_data` | Named volume persists database data across container restarts |
+| `db.healthcheck` | Ensures the Django container only starts after MySQL is fully ready |
+| `web.depends_on` | Enforces startup order: `db` must be healthy before `web` starts |
+| `web.command` | Runs `migrate` first to apply schema changes, then starts Gunicorn |
+| `DB_HOST=db` | The hostname `db` resolves to the MySQL container via Docker's internal DNS |
+| Email env vars | Injected from the host `.env` file; never hardcoded in source control |
+
+---
+
+### 4.4 Container Lifecycle
+
+```
+BUILD PHASE:
+  docker build -t budget-tracker .
+      │
+      ├─► Reads Dockerfile layer by layer
+      ├─► Downloads base image (python:3.10-slim)
+      ├─► Installs system dependencies
+      ├─► Installs Python packages (requirements.txt)
+      ├─► Copies application source code
+      └─► Produces: Docker Image (immutable snapshot)
+
+RUN PHASE:
+  docker-compose up
+      │
+      ├─► Starts db container (MySQL) ──► Waits for healthcheck pass
+      ├─► Starts web container (Django):
+      │     ├─► Runs: python manage.py migrate
+      │     └─► Runs: gunicorn expenseswebsite.wsgi:application
+      └─► Application accessible at: http://localhost:8000
+
+STOP PHASE:
+  docker-compose down
+      │
+      ├─► Sends SIGTERM to all containers ──► Graceful shutdown
+      ├─► Containers are stopped and removed
+      └─► Named volumes (mysql_data) are retained unless --volumes flag is used
+
+REBUILD PHASE (after code changes):
+  docker-compose up --build
+      └─► Forces Docker to rebuild the image with updated source code
+```
+
+---
+
+## 5. Deployment Workflow
+
+### 5.1 Local Deployment Using Docker
+
+The following steps describe the end-to-end local deployment procedure:
+
+**Step 1: Clone the Repository**
+```bash
+git clone https://github.com/<username>/DevOps.git
+cd DevOps
+```
+
+**Step 2: Configure Environment Variables**
+```bash
+# Copy the example env file and fill in required values
+cp .env-example .env
+```
+Edit `.env` with actual values:
+```
+DB_NAME=expensesdb
+DB_USER=root
+DB_USER_PASSWORD=root
+DB_HOST=db
+EMAIL_HOST=smtp.gmail.com
+EMAIL_HOST_USER=your_email@gmail.com
+EMAIL_HOST_PASSWORD=your_app_password
+```
+
+**Step 3: Build and Start Containers**
+```bash
+docker-compose up --build
+```
+- Docker builds the Django image from the `Dockerfile`.
+- MySQL container is started first; Django container waits for the health check.
+- Once MySQL is ready, Django runs `migrate` and starts Gunicorn.
+
+**Step 4: Create the Superuser (Admin)**
+```bash
+docker exec -it budget_tracker_web python manage.py createsuperuser
+```
+
+**Step 5: Access the Application**
+| URL | Purpose |
+|---|---|
+| `http://localhost:8000/` | Main application dashboard (redirects to login) |
+| `http://localhost:8000/authentication/register` | User registration page |
+| `http://localhost:8000/authentication/login` | User login page |
+| `http://localhost:8000/admin/` | Django Admin panel |
+| `http://localhost:8000/stats` | Expense statistics dashboard |
+
+---
+
+### 5.2 Environment Variable Handling
+
+The application follows the **twelve-factor app** principle of strict separation of configuration from code.
+
+- **Database credentials** (`DB_NAME`, `DB_USER`, `DB_USER_PASSWORD`, `DB_HOST`, `DB_PORT`) are read at runtime from container environment variables.
+- **Email settings** (`EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`) are loaded using `os.environ.get(...)` in `settings.py` — they are never committed to the codebase.
+- The `.env-example` file documents the required variable schema without exposing actual secrets.
+- The `.gitignore` file ensures `.env` is never committed to version control.
+
+---
+
+### 5.3 Database Configuration
+
+The database is configured in `expenseswebsite/settings.py`:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'expensesdb',
+        'USER': 'root',
+        'PASSWORD': 'root',
+        'HOST': 'localhost',   # Overridden to 'db' in Docker via env var
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+        }
+    }
+}
+```
+
+- `ENGINE: django.db.backends.mysql` instructs Django to use MySQL via `mysqlclient`.
+- `STRICT_TRANS_TABLES` SQL mode enforces strict data validation on writes, preventing silent data truncation.
+- Django **migrations** manage the schema life cycle:
+  - `python manage.py makemigrations` — generates migration files from model changes.
+  - `python manage.py migrate` — applies all pending migrations to the database.
+- The migration history is tracked in the `django_migrations` table within MySQL.
+
+---
+
+## 6. Future CI/CD Workflow (Conceptual)
+
+### 6.1 Jenkins Integration Overview
+
+**Jenkins** is an open-source automation server that can be configured to monitor the project's Git repository and automatically trigger a pipeline on every code push. The proposed integration is as follows:
+
+```
+Developer pushes code
+        │
+        ▼
+GitHub Repository
+        │
+        │ (Webhook trigger on push to main/develop branch)
+        ▼
+Jenkins CI Server
+        │
+        ▼
+    Pipeline Execution
+```
+
+---
+
+### 6.2 Pipeline Stages
+
+A Jenkins declarative pipeline `Jenkinsfile` for this project would contain the following stages:
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "budget-tracker:${BUILD_NUMBER}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/<username>/DevOps.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t ${DOCKER_IMAGE} .'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        -e DB_HOST=test_db \
+                        ${DOCKER_IMAGE} \
+                        python manage.py test
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'docker-compose down'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+
+    post {
+        failure {
+            mail to: 'dev-team@example.com',
+                 subject: "Build FAILED: ${env.JOB_NAME}",
+                 body: "Check Jenkins at ${env.BUILD_URL}"
+        }
+    }
+}
+```
+
+---
+
+### 6.3 Pipeline Stage Descriptions
+
+| Stage | Action | Purpose |
+|---|---|---|
+| **Checkout** | Pulls latest source code from Git repository | Ensures the pipeline always builds from the most recent commit |
+| **Build** | Executes `docker build` to create a versioned application image | Validates that all dependencies install correctly and the image compiles without errors |
+| **Test** | Runs `python manage.py test` inside the Docker container | Executes Django unit tests against a test database; pipeline fails if any test fails |
+| **Deploy** | Executes `docker-compose down && docker-compose up -d` | Terminates the existing running instance and redeploys with the newly built image |
+| **Notification** | Sends email alert on pipeline failure | Keeps the development team immediately informed of any build or test regressions |
+
+---
+
+### 6.4 Automated Testing Concept
+
+Django's built-in testing framework (`django.test`) supports:
+
+- **Unit Tests:** Testing individual view functions, model methods, and utility functions in isolation.
+- **Integration Tests:** Testing URL routing, form submissions, and database interactions end-to-end.
+- **Authentication Tests:** Verifying login-required redirects, registration validation, and session management.
+
+Example test scenario for the expense module:
+
+```python
+from django.test import TestCase, Client
+from django.contrib.auth.models import User
+from expenses.models import Expense
+
+class ExpenseModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser', password='testpass123')
+        self.expense = Expense.objects.create(
+            owner=self.user, amount=500.00,
+            description='Grocery shopping',
+            category='Food', date='2026-02-01')
+
+    def test_expense_creation(self):
+        self.assertEqual(self.expense.amount, 500.00)
+        self.assertEqual(self.expense.owner, self.user)
+
+    def test_expense_str(self):
+        self.assertEqual(str(self.expense), 'Food')
+
+    def test_expense_list_requires_login(self):
+        client = Client()
+        response = client.get('/')
+        self.assertRedirects(response, '/authentication/login?next=/')
+```
+
+In the CI/CD pipeline, these tests are executed automatically. A failing test prevents the deployment from proceeding, ensuring only validated code reaches the runtime environment.
+
+---
+
+## 7. Security Considerations
+
+### 7.1 Authentication Security
+
+- **Password Hashing:** Django uses `PBKDF2` with `SHA256` hashing (via `django.contrib.auth`) to store passwords. Plaintext passwords are never persisted.
+- **Password Validation:** Four validators are enforced in `settings.py`:
+  - `UserAttributeSimilarityValidator` — prevents passwords similar to username or email.
+  - `MinimumLengthValidator` — enforces a minimum of 8 characters.
+  - `CommonPasswordValidator` — rejects common passwords.
+  - `NumericPasswordValidator` — prevents entirely numeric passwords.
+- **Email Verification:** Newly registered accounts are set to `is_active=False` until the user clicks a tokenized link sent to their email. This prevents unauthorized or fake account creation.
+- **Activation Tokens:** Generated using Django's `PasswordResetTokenGenerator` class (via `account_activation_token`). Each token is single-use and bound to the user's account state.
+
+---
+
+### 7.2 Session Handling
+
+- Django uses **server-side sessions** backed by the database (`django.contrib.sessions`). Only a session ID cookie is sent to the client — no sensitive data is stored in the browser.
+- **CSRF Protection:** Django's `CsrfViewMiddleware` is active by default. All state-changing POST forms include a `{% csrf_token %}` template tag. The AJAX search endpoint is explicitly `csrf_exempt` as it performs only read operations.
+- **Session Invalidation:** `auth.logout(request)` destroys the server-side session entry upon logout, preventing session replay attacks.
+
+---
+
+### 7.3 Access Control
+
+- The `@login_required` decorator is applied to all views that access user-specific data. Unauthenticated requests are redirected to the login page.
+- **Object-level data isolation:** All database queries include `owner=request.user` as a filter:
+  ```python
+  expenses = Expense.objects.filter(owner=request.user)
+  ```
+  This ensures that even if a URL parameter (e.g., `/edit-expense/42`) is guessed, the application can only retrieve records belonging to the currently authenticated user.
+- **Django Admin** access is restricted to users with `is_staff=True` or `is_superuser=True`, which must be explicitly granted and cannot be self-assigned through the public registration flow.
+
+---
+
+### 7.4 Data Isolation
+
+- Each `Expense`, `UserIncome`, and `UserPreference` record is linked to the `auth_user` table via a **ForeignKey** or **OneToOneField** with `on_delete=models.CASCADE`. Deleting a user cascades the deletion to all associated records, preventing orphaned data.
+- **Database SQL Mode:** `STRICT_TRANS_TABLES` is enforced, ensuring that invalid or out-of-range data is rejected at the database level rather than silently truncated.
+- **Docker Network Isolation:** The MySQL container's port `3306` is not necessarily exposed to the host network in production deployments; only the Django container within the same Docker Compose network has access to the database service.
+
+---
+
+## 8. Conclusion
+
+### 8.1 Learning Outcomes
+
+The development and deployment of this project yielded the following technical learning outcomes:
+
+- **Django Framework Proficiency:** Understanding of Django's MVT (Model-View-Template) architecture, ORM, class-based views, URL routing, middleware, and the admin interface.
+- **Authentication Architecture:** Implementing a complete authentication pipeline including email-verified registration, session-based login, and secure logout — using Django's built-in auth framework.
+- **Role-Based Access Control:** Applying `@login_required` decorators and ORM-level data filtering to implement data isolation between users.
+- **Containerization with Docker:** Writing production-ready Dockerfiles, understanding image layering and build caching, and deploying multi-service applications with Docker Compose.
+- **Environment Configuration Management:** Applying the twelve-factor app methodology to manage secrets and environment-specific settings externally — never hardcoded in source files.
+- **Database Management:** Working with MySQL via Django ORM, managing schema changes through migrations, and configuring database connections for containerized environments.
+- **CI/CD Pipeline Design:** Understanding the stages of an automated pipeline (Checkout → Build → Test → Deploy) and how tools like Jenkins integrate with Docker and Git to automate software delivery.
+- **Security Best Practices:** Understanding password hashing, CSRF protection, server-side sessions, and object-level authorization in a web application context.
+
+---
+
+### 8.2 Practical Relevance in DevOps and Software Engineering
+
+This project demonstrates the **intersection of software development and operations** — the core philosophy of DevOps:
+
+- **Repeatability and Consistency:** Docker ensures the application behaves identically across a developer's laptop, a testing server, and a production environment.
+- **Automation:** The conceptual CI/CD pipeline eliminates manual build and deployment procedures, reducing human error and accelerating the software delivery cycle.
+- **Infrastructure-as-Code:** The `Dockerfile` and `docker-compose.yml` serve as executable infrastructure specifications — the entire application environment can be reproduced from source control alone.
+- **Scalability:** While the current deployment is single-container, the architecture is designed to scale horizontally — the database container can be replaced with a managed service (e.g., Amazon RDS), and the web container can be replicated behind a load balancer.
+- **Observability Foundation:** The use of structured environment variables and modular container services provides a foundation for integrating monitoring tools (e.g., Prometheus, Grafana) in a production extension.
+
+This project thus provides hands-on exposure to the complete DevOps lifecycle — from code to container to automated deployment — forming a practical foundation for enterprise-grade software development and operations practices.
+
+---
+
+*End of Documentation*
+
+---
+
+**Document Prepared By:** [Student Name]  
+**Roll Number:** [Roll No.]  
+**Department:** Master of Computer Applications (MCA)  
+**Institution:** [Institution Name]  
+**Date:** February 2026

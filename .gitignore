@@ -66,7 +66,7 @@ coverage.xml
 docs/_build/
 
 # PyBuilder
-target/
+target/env
 
 # pyenv
 .python-version
@@ -108,3 +108,7 @@ dmypy.json
 .pyre/
 
 # End of https://www.gitignore.io/api/python
+denv/
+db.sqlite3
+media/
+.env
