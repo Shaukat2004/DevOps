@@ -2,26 +2,36 @@ pipeline {
   agent any
 
   stages {
+
     stage('Install Dependencies') {
       steps {
         bat 'pip install -r requirements.txt'
       }
     }
+
     stage('Migrate Database') {
       steps {
         bat 'python manage.py migrate'
       }
     }
-    stage('Run Tests') {
+
+    stage('Start Django Server') {
       steps {
-        bat 'pytest --junitxml=result.xml'
+        bat 'start /B python manage.py runserver 8000'
       }
     }
+
+    stage('Run Selenium Tests') {
+      steps {
+        bat 'pytest tests --junitxml=result.xml'
+      }
+    }
+
     stage('Publish Test Results') {
-            steps {
-                junit 'result.xml'
-            }
-        }
+      steps {
+        junit 'result.xml'
+      }
+    }
+
   }
 }
-
