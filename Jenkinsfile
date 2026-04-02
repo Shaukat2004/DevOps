@@ -3,33 +3,9 @@ pipeline {
 
   stages {
 
-    stage('Install Dependencies') {
+    stage('Run Tests in Docker') {
       steps {
-        bat 'pip install -r requirements.txt'
-      }
-    }
-
-    stage('Migrate Database') {
-      steps {
-        bat 'python manage.py migrate'
-      }
-    }
-
-    stage('Start Django Server') {
-      steps {
-        bat 'start /B python manage.py runserver 8000'
-      }
-    }
-
-    stage('Run Selenium Tests') {
-      steps {
-        bat 'pytest tests --junitxml=result.xml'
-      }
-    }
-
-    stage('Publish Test Results') {
-      steps {
-        junit 'result.xml'
+        bat 'docker run --rm budget-tracker-app:1.0 python manage.py test'
       }
     }
 
